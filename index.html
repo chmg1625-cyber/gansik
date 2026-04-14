@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>정밀 단가 분석기 v2</title>
+    <title>정밀 단가 분석기 v2 - File Sync</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f8f9fa; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f8f9fa; --file: #8e44ad; }
         body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; color: #333; }
         .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 1100px; margin: 0 auto; }
         h2 { text-align: center; margin-bottom: 30px; color: var(--primary); }
@@ -24,20 +24,26 @@
         .loss-container { display: flex; align-items: center; gap: 5px; justify-content: center; }
         .loss-slider { width: 80px; }
 
-        .btn { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: 0.2s; }
-        .btn-add { background: var(--primary); color: white; padding: 12px; width: 100%; margin-top: 10px; }
+        .btn { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: 0.2s; margin: 5px 0; }
+        .btn-add { background: var(--primary); color: white; padding: 12px; width: 100%; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .btn-save { background: var(--file); color: white; padding: 12px; }
+        .btn-load { background: #34495e; color: white; padding: 12px; }
         .btn-del { background: #e74c3c; color: white; padding: 6px 10px; }
         .btn:hover { opacity: 0.8; }
 
         .summary-card { background: #2c3e50; color: white; padding: 25px; border-radius: 10px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center; }
         .total-price { font-size: 2.2em; color: #2ecc71; }
         .helper-text { font-size: 0.85em; color: #95a5a6; margin-top: 5px; }
+        
+        /* 숨겨진 파일 입력 칸 */
+        #fileInput { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🎯 정밀 단가 분석 계산기</h2>
+    <h2>🎯 정밀 단가 분석기 (.CBH 관리형)</h2>
 
     <table id="calcTable">
         <thead>
@@ -53,59 +59,54 @@
             </tr>
         </thead>
         <tbody id="tbody">
-            <tr>
-                <td><input type="text" class="input-name" value="기본 재료"></td>
-                <td>
-                    <select class="unit-type" onchange="calculate()">
-                        <option value="kg">kg (무게)</option>
-                        <option value="ea">개 (수량)</option>
-                    </select>
-                </td>
-                <td><input type="number" class="input-num buy-qty" value="1" oninput="calculate()"></td>
-                <td><input type="number" class="input-num buy-price" value="10000" oninput="calculate()"></td>
-                <td><input type="number" class="input-num use-qty" value="100" oninput="calculate()"></td>
-                <td>
-                    <div class="loss-container">
-                        <input type="range" class="loss-slider" min="0" max="50" value="0" oninput="updateLossInput(this)">
-                        <input type="number" class="input-loss loss-val" value="0" min="0" max="100" oninput="updateLossSlider(this)">
-                    </div>
-                </td>
-                <td><span class="row-cost">0</span>원</td>
-                <td><button class="btn btn-del" onclick="deleteRow(this)">X</button></td>
-            </tr>
-        </tbody>
+            </tbody>
     </table>
 
     <button class="btn btn-add" onclick="addRow()">+ 새로운 항목 추가</button>
+    
+    <div class="btn-group">
+        <button class="btn btn-save" onclick="saveAsCBH()">💾 .CBH 파일로 저장</button>
+        <button class="btn btn-load" onclick="triggerFileInput()">📂 .CBH 파일 불러오기</button>
+    </div>
+    <input type="file" id="fileInput" accept=".cbh" onchange="loadCBH(event)">
 
     <div class="summary-card">
         <div>
             <div style="font-size: 1.1em; margin-bottom: 5px;">최종 제작 원가 (1인분)</div>
-            <div class="helper-text">* 개별 로스율이 포함된 실질 단가입니다.</div>
+            <div class="helper-text">* .CBH 파일은 메모장으로 열 수 있는 JSON 기반 형식입니다.</div>
         </div>
         <div class="total-price"><span id="totalDisplay">0</span>원</div>
     </div>
 </div>
 
 <script>
-    function addRow() {
+    // 행 추가 함수
+    function addRow(data = null) {
         const tbody = document.getElementById('tbody');
         const row = document.createElement('tr');
+        
+        const name = data ? data.name : "";
+        const unit = data ? data.unit : "kg";
+        const buyQty = data ? data.buyQty : 1;
+        const buyPrice = data ? data.buyPrice : 0;
+        const useQty = data ? data.useQty : 0;
+        const loss = data ? data.loss : 0;
+
         row.innerHTML = `
-            <td><input type="text" class="input-name" placeholder="재료명"></td>
+            <td><input type="text" class="input-name" placeholder="재료명" value="${name}"></td>
             <td>
                 <select class="unit-type" onchange="calculate()">
-                    <option value="kg">kg (무게)</option>
-                    <option value="ea">개 (수량)</option>
+                    <option value="kg" ${unit === 'kg' ? 'selected' : ''}>kg (무게)</option>
+                    <option value="ea" ${unit === 'ea' ? 'selected' : ''}>개 (수량)</option>
                 </select>
             </td>
-            <td><input type="number" class="input-num buy-qty" value="1" oninput="calculate()"></td>
-            <td><input type="number" class="input-num buy-price" value="0" oninput="calculate()"></td>
-            <td><input type="number" class="input-num use-qty" value="0" oninput="calculate()"></td>
+            <td><input type="number" class="input-num buy-qty" value="${buyQty}" oninput="calculate()"></td>
+            <td><input type="number" class="input-num buy-price" value="${buyPrice}" oninput="calculate()"></td>
+            <td><input type="number" class="input-num use-qty" value="${useQty}" oninput="calculate()"></td>
             <td>
                 <div class="loss-container">
-                    <input type="range" class="loss-slider" min="0" max="50" value="0" oninput="updateLossInput(this)">
-                    <input type="number" class="input-loss loss-val" value="0" min="0" max="100" oninput="updateLossSlider(this)">
+                    <input type="range" class="loss-slider" min="0" max="100" value="${loss}" oninput="updateLossInput(this)">
+                    <input type="number" class="input-loss loss-val" value="${loss}" min="0" max="100" oninput="updateLossSlider(this)">
                 </div>
             </td>
             <td><span class="row-cost">0</span>원</td>
@@ -120,13 +121,11 @@
         calculate();
     }
 
-    // 슬라이더 조절 시 숫자 입력칸 업데이트
     function updateLossInput(slider) {
         slider.nextElementSibling.value = slider.value;
         calculate();
     }
 
-    // 숫자 직접 입력 시 슬라이더 업데이트
     function updateLossSlider(input) {
         let val = input.value;
         if(val > 100) val = 100;
@@ -147,17 +146,12 @@
 
             let unitPrice = 0;
             if (unitType === 'kg') {
-                // kg 선택 시 g당 단가 환산 (1kg = 1000g)
-                unitPrice = buyPrice / (buyQty * 1000);
+                unitPrice = buyPrice / (buyQty * 1000 || 1);
             } else {
-                // 개(ea) 선택 시 개당 단가 환산
-                unitPrice = buyPrice / buyQty;
+                unitPrice = buyPrice / (buyQty || 1);
             }
 
-            // 기본 원가 = 단위 단가 * 사용량
             let baseCost = unitPrice * useQty;
-            
-            // 로스율 적용 (원가에 가산)
             let finalRowCost = baseCost * (1 + (lossPercent / 100));
 
             row.querySelector('.row-cost').innerText = Math.round(finalRowCost).toLocaleString();
@@ -167,8 +161,74 @@
         document.getElementById('totalDisplay').innerText = Math.round(grandTotal).toLocaleString();
     }
 
-    // 초기 계산 실행
-    calculate();
+    // [파일 저장 기능]
+    function saveAsCBH() {
+        const rows = document.querySelectorAll('#tbody tr');
+        const dataToSave = [];
+
+        rows.forEach(row => {
+            dataToSave.push({
+                name: row.querySelector('.input-name').value,
+                unit: row.querySelector('.unit-type').value,
+                buyQty: row.querySelector('.buy-qty').value,
+                buyPrice: row.querySelector('.buy-price').value,
+                useQty: row.querySelector('.use-qty').value,
+                loss: row.querySelector('.loss-val').value
+            });
+        });
+
+        if (dataToSave.length === 0) {
+            alert("저장할 데이터가 없습니다.");
+            return;
+        }
+
+        const jsonString = JSON.stringify(dataToSave, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        const fileName = `analysis_${new Date().toISOString().slice(0,10)}.cbh`;
+        
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        
+        URL.revokeObjectURL(url);
+    }
+
+    // [파일 불러오기 기능]
+    function triggerFileInput() {
+        document.getElementById('fileInput').click();
+    }
+
+    function loadCBH(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // 기존 테이블 초기화
+                document.getElementById('tbody').innerHTML = "";
+                
+                // 데이터 복구
+                data.forEach(item => addRow(item));
+                alert("데이터를 성공적으로 불러왔습니다.");
+            } catch (err) {
+                alert("올바른 .CBH 파일이 아니거나 데이터가 손상되었습니다.");
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+        
+        // 같은 파일을 다시 올릴 수 있도록 초기화
+        event.target.value = "";
+    }
+
+    // 초기 실행 시 빈 행 하나 추가
+    window.onload = () => { addRow(); };
 </script>
 
 </body>
