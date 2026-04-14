@@ -3,26 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>정밀 단가 분석기 v2 - File Sync</title>
+    <title>정밀 단가 분석기 v2 - Bulk Support</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f8f9fa; --file: #8e44ad; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f8f9fa; --file: #8e44ad; --link: #3498db; }
         body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; color: #333; }
-        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 1100px; margin: 0 auto; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 1300px; margin: 0 auto; }
         h2 { text-align: center; margin-bottom: 30px; color: var(--primary); }
         
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.95em; }
-        th { background: #f1f3f5; padding: 12px; border-bottom: 2px solid #dee2e6; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.9em; }
+        th { background: #f1f3f5; padding: 12px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
         td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
 
         select, input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; transition: border 0.2s; }
         select:focus, input:focus { border-color: var(--accent); }
         
-        .input-name { width: 120px; }
-        .input-num { width: 80px; text-align: right; }
-        .input-loss { width: 60px; text-align: right; }
+        .input-name { width: 100px; }
+        .input-link { width: 110px; font-size: 0.8em; }
+        .input-num { width: 65px; text-align: right; }
+        .input-loss { width: 50px; text-align: right; }
         
         .loss-container { display: flex; align-items: center; gap: 5px; justify-content: center; }
-        .loss-slider { width: 80px; }
+        .loss-slider { width: 50px; }
 
         .btn { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: 0.2s; margin: 5px 0; }
         .btn-add { background: var(--primary); color: white; padding: 12px; width: 100%; }
@@ -30,28 +31,37 @@
         .btn-save { background: var(--file); color: white; padding: 12px; }
         .btn-load { background: #34495e; color: white; padding: 12px; }
         .btn-del { background: #e74c3c; color: white; padding: 6px 10px; }
+        
+        .link-go { 
+            display: inline-block; padding: 4px 6px; background: var(--link); color: white; 
+            text-decoration: none; border-radius: 4px; font-size: 0.75em; visibility: hidden;
+        }
+        .link-go.active { visibility: visible; }
+        .highlight-col { background: #fffdf0; } /* 묶음 수량 강조 */
+
         .btn:hover { opacity: 0.8; }
 
         .summary-card { background: #2c3e50; color: white; padding: 25px; border-radius: 10px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center; }
         .total-price { font-size: 2.2em; color: #2ecc71; }
         .helper-text { font-size: 0.85em; color: #95a5a6; margin-top: 5px; }
         
-        /* 숨겨진 파일 입력 칸 */
         #fileInput { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🎯 정밀 단가 분석기 (.CBH 관리형)</h2>
+    <h2>🎯 정밀 단가 분석기 (.CBH + Bulk)</h2>
 
     <table id="calcTable">
         <thead>
             <tr>
                 <th>재료명</th>
+                <th>구매 링크</th>
                 <th>구매 단위</th>
                 <th>구매 수량</th>
-                <th>구매 가격(원)</th>
+                <th class="highlight-col">묶음 수량(n개입)</th>
+                <th>총 구매가(원)</th>
                 <th>사용량(g/개)</th>
                 <th>로스율(%)</th>
                 <th>최종 단가</th>
@@ -59,13 +69,13 @@
             </tr>
         </thead>
         <tbody id="tbody">
-            </tbody>
+        </tbody>
     </table>
 
     <button class="btn btn-add" onclick="addRow()">+ 새로운 항목 추가</button>
     
     <div class="btn-group">
-        <button class="btn btn-save" onclick="saveAsCBH()">💾 .CBH 파일로 저장</button>
+        <button class="btn btn-save" onclick="saveAsCBH()">💾 현재 구성 .CBH 저장</button>
         <button class="btn btn-load" onclick="triggerFileInput()">📂 .CBH 파일 불러오기</button>
     </div>
     <input type="file" id="fileInput" accept=".cbh" onchange="loadCBH(event)">
@@ -73,21 +83,22 @@
     <div class="summary-card">
         <div>
             <div style="font-size: 1.1em; margin-bottom: 5px;">최종 제작 원가 (1인분)</div>
-            <div class="helper-text">* .CBH 파일은 메모장으로 열 수 있는 JSON 기반 형식입니다.</div>
+            <div class="helper-text">* 묶음 상품의 경우 '묶음 수량'에 입수를 적으시면 자동 분할 계산됩니다.</div>
         </div>
         <div class="total-price"><span id="totalDisplay">0</span>원</div>
     </div>
 </div>
 
 <script>
-    // 행 추가 함수
     function addRow(data = null) {
         const tbody = document.getElementById('tbody');
         const row = document.createElement('tr');
         
         const name = data ? data.name : "";
+        const link = data ? data.link : "";
         const unit = data ? data.unit : "kg";
         const buyQty = data ? data.buyQty : 1;
+        const bulkQty = data ? data.bulkQty : 1; // 묶음 수량 기본값 1
         const buyPrice = data ? data.buyPrice : 0;
         const useQty = data ? data.useQty : 0;
         const loss = data ? data.loss : 0;
@@ -95,12 +106,19 @@
         row.innerHTML = `
             <td><input type="text" class="input-name" placeholder="재료명" value="${name}"></td>
             <td>
+                <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+                    <input type="url" class="input-link" placeholder="링크" value="${link}" oninput="updateLinkButton(this)">
+                    <a href="${link}" target="_blank" class="link-go ${link ? 'active' : ''}">이동 🔗</a>
+                </div>
+            </td>
+            <td>
                 <select class="unit-type" onchange="calculate()">
-                    <option value="kg" ${unit === 'kg' ? 'selected' : ''}>kg (무게)</option>
-                    <option value="ea" ${unit === 'ea' ? 'selected' : ''}>개 (수량)</option>
+                    <option value="kg" ${unit === 'kg' ? 'selected' : ''}>kg</option>
+                    <option value="ea" ${unit === 'ea' ? 'selected' : ''}>개</option>
                 </select>
             </td>
             <td><input type="number" class="input-num buy-qty" value="${buyQty}" oninput="calculate()"></td>
+            <td class="highlight-col"><input type="number" class="input-num bulk-qty" value="${bulkQty}" oninput="calculate()"></td>
             <td><input type="number" class="input-num buy-price" value="${buyPrice}" oninput="calculate()"></td>
             <td><input type="number" class="input-num use-qty" value="${useQty}" oninput="calculate()"></td>
             <td>
@@ -114,6 +132,17 @@
         `;
         tbody.appendChild(row);
         calculate();
+    }
+
+    function updateLinkButton(input) {
+        const linkBtn = input.nextElementSibling;
+        const url = input.value.trim();
+        if(url) {
+            linkBtn.href = url.startsWith('http') ? url : 'https://' + url;
+            linkBtn.classList.add('active');
+        } else {
+            linkBtn.classList.remove('active');
+        }
     }
 
     function deleteRow(btn) {
@@ -140,15 +169,21 @@
         rows.forEach(row => {
             const unitType = row.querySelector('.unit-type').value;
             const buyQty = parseFloat(row.querySelector('.buy-qty').value) || 0;
+            const bulkQty = parseFloat(row.querySelector('.bulk-qty').value) || 1; // 묶음 단위
             const buyPrice = parseFloat(row.querySelector('.buy-price').value) || 0;
             const useQty = parseFloat(row.querySelector('.use-qty').value) || 0;
             const lossPercent = parseFloat(row.querySelector('.loss-val').value) || 0;
 
+            // 총량 계산 (구매수량 * 묶음수량)
+            const totalVolume = buyQty * bulkQty;
+
             let unitPrice = 0;
             if (unitType === 'kg') {
-                unitPrice = buyPrice / (buyQty * 1000 || 1);
+                // kg 선택 시 전체를 g으로 환산하여 단가 계산
+                unitPrice = buyPrice / (totalVolume * 1000 || 1);
             } else {
-                unitPrice = buyPrice / (buyQty || 1);
+                // 개(ea) 선택 시 개당 단가 계산
+                unitPrice = buyPrice / (totalVolume || 1);
             }
 
             let baseCost = unitPrice * useQty;
@@ -161,7 +196,6 @@
         document.getElementById('totalDisplay').innerText = Math.round(grandTotal).toLocaleString();
     }
 
-    // [파일 저장 기능]
     function saveAsCBH() {
         const rows = document.querySelectorAll('#tbody tr');
         const dataToSave = [];
@@ -169,65 +203,43 @@
         rows.forEach(row => {
             dataToSave.push({
                 name: row.querySelector('.input-name').value,
+                link: row.querySelector('.input-link').value,
                 unit: row.querySelector('.unit-type').value,
                 buyQty: row.querySelector('.buy-qty').value,
+                bulkQty: row.querySelector('.bulk-qty').value,
                 buyPrice: row.querySelector('.buy-price').value,
                 useQty: row.querySelector('.use-qty').value,
                 loss: row.querySelector('.loss-val').value
             });
         });
 
-        if (dataToSave.length === 0) {
-            alert("저장할 데이터가 없습니다.");
-            return;
-        }
+        if (dataToSave.length === 0) return alert("데이터가 없습니다.");
 
-        const jsonString = JSON.stringify(dataToSave, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-        
         const link = document.createElement("a");
-        const fileName = `analysis_${new Date().toISOString().slice(0,10)}.cbh`;
-        
         link.href = url;
-        link.download = fileName;
+        link.download = `price_analysis_bulk_${new Date().getTime()}.cbh`;
         link.click();
-        
-        URL.revokeObjectURL(url);
     }
 
-    // [파일 불러오기 기능]
-    function triggerFileInput() {
-        document.getElementById('fileInput').click();
-    }
+    function triggerFileInput() { document.getElementById('fileInput').click(); }
 
     function loadCBH(event) {
         const file = event.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = JSON.parse(e.target.result);
-                
-                // 기존 테이블 초기화
                 document.getElementById('tbody').innerHTML = "";
-                
-                // 데이터 복구
                 data.forEach(item => addRow(item));
-                alert("데이터를 성공적으로 불러왔습니다.");
-            } catch (err) {
-                alert("올바른 .CBH 파일이 아니거나 데이터가 손상되었습니다.");
-                console.error(err);
-            }
+            } catch (err) { alert("파일을 읽는 중 오류가 발생했습니다."); }
         };
         reader.readAsText(file);
-        
-        // 같은 파일을 다시 올릴 수 있도록 초기화
         event.target.value = "";
     }
 
-    // 초기 실행 시 빈 행 하나 추가
     window.onload = () => { addRow(); };
 </script>
 
